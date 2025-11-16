@@ -126,7 +126,7 @@ pipeline {
     stage('DAST light (local smoke test)') {
       steps {
         sh """
-          docker run -d --rm --name timeboard-ci-test -p 3005:3005 ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
+          docker run -d --rm --name timeboard-ci-test -p 8080:3005 ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
           sleep 15
           curl -f http://localhost:3005/health
           docker stop timeboard-ci-test
