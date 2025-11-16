@@ -18,9 +18,11 @@ pipeline {
 
     stage('Checkout') {
       steps {
-        git url: 'https://github.com/ngueyepmodeste/timeboard-demo.git', branch: 'main'
-      }
-    }
+    // Jenkins a déjà fait le checkout grâce à "Pipeline from SCM"
+    sh 'pwd'
+    sh 'ls -R'
+  }
+}
 
     stage('Secret Scan (Gitleaks)') {
       steps {
