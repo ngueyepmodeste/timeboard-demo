@@ -13,7 +13,7 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        git url: 'https://github.com/TON_USER/simple-java-timesheet.git', branch: 'main'
+        git url: 'https://github.com/TON_USER/simple-java-timesheet.git', branch: 'test'
       }
     }
 
