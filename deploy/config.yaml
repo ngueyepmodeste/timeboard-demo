@@ -1,0 +1,5 @@
+app: timeboard-demo
+image: NEXUS_REGISTRY_HOST:8083/ngueyepmodeste/timeboard:1.0.0
+container_port: 8080
+host_port: 80
+environment: prod

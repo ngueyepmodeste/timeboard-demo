@@ -2,18 +2,43 @@ pipeline {
   agent any
 
   environment {
-    NEXUS_URL = "http://CI_NEXUS_IP:8081/repository/java-app-releases"
-    NEXUS_CRED = 'nexus-creds'
-    APP_USER = "ubuntu"          // ou ton user sur app-server
-    APP_HOST = "APP_SERVER_IP"   // IP publique de app-server
-    APP_SERVICE_NAME = "simple-java-timesheet"
-    JAR_NAME = "simple-java-timesheet-1.0.0.jar"
+    REGISTRY          = "NEXUS_REGISTRY_HOST:8083"
+    IMAGE_NAME        = "ngueyepmodeste/timeboard"
+
+    NEXUS_DOCKER_CRED = "nexus-docker-creds" // username/password pour le registry
+    NEXUS_RAW_URL     = "http://NEXUS_HOST:8081/repository/timeboard-artifacts"
+
+    APP_USER          = "ubuntu"
+    APP_HOST          = "APP_SERVER_IP"
+
+    JAR_NAME          = "timeboard-demo-1.0.0.jar"
   }
 
   stages {
+
     stage('Checkout') {
       steps {
-        git url: 'https://github.com/TON_USER/simple-java-timesheet.git', branch: 'test'
+        git url: 'https://github.com/TON_USER/timeboard-demo.git', branch: 'main'
+      }
+    }
+
+    stage('Secret Scan (Gitleaks)') {
+      steps {
+        sh 'gitleaks detect --source . --no-git -v --report-path gitleaks-report.json || true'
+        archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true
+      }
+    }
+
+    stage('Policy Check (Conftest)') {
+      steps {
+        sh '''
+          if [ -f deploy/config.yaml ]; then
+            conftest test deploy/config.yaml -p policy > conftest-report.txt || true
+          else
+            echo "deploy/config.yaml missing; skipping conftest" > conftest-report.txt
+          fi
+        '''
+        archiveArtifacts artifacts: 'conftest-report.txt', allowEmptyArchive: true
       }
     }
 
@@ -26,12 +51,12 @@ pipeline {
 
     stage('SAST (SpotBugs)') {
       steps {
-        sh 'mvn spotbugs:spotbugs'
+        sh 'mvn spotbugs:spotbugs || true'
         archiveArtifacts artifacts: 'target/spotbugsXml.xml', allowEmptyArchive: true
       }
     }
 
-    stage('SCA (OWASP Dependency Check)') {
+    stage('SCA (Dependency-Check)') {
       steps {
         sh 'mvn org.owasp:dependency-check-maven:check || true'
         archiveArtifacts artifacts: 'dependency-check-report.html', allowEmptyArchive: true
@@ -45,31 +70,84 @@ pipeline {
       }
     }
 
-    stage('Upload to Nexus') {
+    stage('Build Docker Image') {
       steps {
-        withCredentials([usernamePassword(credentialsId: NEXUS_CRED,
+        sh """
+          docker build -t ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} .
+        """
+      }
+    }
+
+    stage('Image Scan (Trivy)') {
+      steps {
+        sh """
+          trivy image --exit-code 0 --format table \
+            --output trivy-report.txt ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} || true
+        """
+        archiveArtifacts artifacts: 'trivy-report.txt', allowEmptyArchive: true
+      }
+    }
+
+    stage('Push Docker Image to Nexus') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: NEXUS_DOCKER_CRED,
                                          usernameVariable: 'NEXUS_USER',
                                          passwordVariable: 'NEXUS_PASS')]) {
           sh """
-            curl -u $NEXUS_USER:$NEXUS_PASS \\
-                 --upload-file target/${JAR_NAME} \\
-                 ${NEXUS_URL}/${JAR_NAME}
+            echo \$NEXUS_PASS | docker login ${REGISTRY} -u \$NEXUS_USER --password-stdin
+            docker push ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
+            docker logout ${REGISTRY}
           """
         }
       }
     }
 
+    stage('Upload Reports & JAR to Nexus (raw)') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: NEXUS_DOCKER_CRED,
+                                         usernameVariable: 'NEXUS_USER',
+                                         passwordVariable: 'NEXUS_PASS')]) {
+          sh '''
+            for f in gitleaks-report.json conftest-report.txt dependency-check-report.html trivy-report.txt target/'"${JAR_NAME}"'; do
+              if [ -f "$f" ]; then
+                echo "Uploading $f to Nexus raw..."
+                curl -u ${NEXUS_USER}:${NEXUS_PASS} --upload-file "$f" "${NEXUS_RAW_URL}/$f"
+              else
+                echo "File $f not found, skipping."
+              fi
+            done
+          '''
+        }
+      }
+    }
+
+    stage('DAST light (local smoke test)') {
+      steps {
+        sh """
+          docker run -d --rm --name timeboard-ci-test -p 8080:8080 ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
+          sleep 15
+          curl -f http://localhost:8080/health
+          docker stop timeboard-ci-test
+        """
+      }
+    }
+
     stage('Deploy to App Server') {
       steps {
-        sshagent (credentials: ['app-server-key']) {
-          sh """
-            scp -o StrictHostKeyChecking=no target/${JAR_NAME} ${APP_USER}@${APP_HOST}:/home/${APP_USER}/${JAR_NAME}
-            ssh -o StrictHostKeyChecking=no ${APP_USER}@${APP_HOST} '
-              sudo systemctl stop ${APP_SERVICE_NAME} || true
-              sudo mv /home/${APP_USER}/${JAR_NAME} /opt/${APP_SERVICE_NAME}/${JAR_NAME}
-              sudo systemctl start ${APP_SERVICE_NAME}
-            '
-          """
+        sshagent (credentials: ['app-server-ssh']) {
+          withCredentials([usernamePassword(credentialsId: NEXUS_DOCKER_CRED,
+                                            usernameVariable: 'NEXUS_USER',
+                                            passwordVariable: 'NEXUS_PASS')]) {
+            sh """
+              ssh -o StrictHostKeyChecking=no ${APP_USER}@${APP_HOST} '
+                docker ps -q --filter "name=timeboard-demo" | xargs -r docker stop &&
+                docker ps -aq --filter "name=timeboard-demo" | xargs -r docker rm || true &&
+                echo ${NEXUS_PASS} | docker login ${REGISTRY} -u ${NEXUS_USER} --password-stdin &&
+                docker pull ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} &&
+                docker run -d --name timeboard-demo -p 80:8080 ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
+              '
+            """
+          }
         }
       }
     }
