@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${title}">TimeBoard</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1 th:text="${title}">TimeBoard – Démo gestion des temps</h1>
+        <p class="subtitle">Mini application Java pour démonstration CI/CD & DevSecOps</p>
+    </header>
+
+    <section class="summary-card">
+        <div class="info">
+            <h2 th:text="${user}">Utilisateur</h2>
+            <p>
+                Date : <span th:text="${day}">2025-11-15</span><br>
+                Heures travaillées : <span th:text="${totalHours}">8</span> h
+            </p>
+        </div>
+        <div class="badge">
+            <span>DEMO</span>
+        </div>
+    </section>
+
+    <section>
+        <h3>Détail des temps</h3>
+        <table>
+            <thead>
+            <tr>
+                <th>Jour</th>
+                <th>Projet</th>
+                <th>Heures</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="entry : ${entries}">
+                <td th:text="${entry.day}">Lundi</td>
+                <td th:text="${entry.project}">Projet</td>
+                <td th:text="${entry.hours}">8</td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <footer>
+        <p>Healthcheck API : <a href="/health">/health</a></p>
+    </footer>
+</div>
+</body>
+</html>
