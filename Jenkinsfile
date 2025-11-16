@@ -2,14 +2,14 @@ pipeline {
   agent any
 
   environment {
-    REGISTRY          = "NEXUS_REGISTRY_HOST:8083"
+    REGISTRY          = "44.223.34.156:8083"
     IMAGE_NAME        = "ngueyepmodeste/timeboard"
 
     NEXUS_DOCKER_CRED = "nexus-docker-creds" // username/password pour le registry
-    NEXUS_RAW_URL     = "http://NEXUS_HOST:8081/repository/timeboard-artifacts"
+    NEXUS_RAW_URL     = "http://44.223.34.156:8081/repository/timeboard-artifacts"
 
     APP_USER          = "ubuntu"
-    APP_HOST          = "APP_SERVER_IP"
+    APP_HOST          = "3.92.51.98"
 
     JAR_NAME          = "timeboard-demo-1.0.0.jar"
   }
@@ -18,7 +18,7 @@ pipeline {
 
     stage('Checkout') {
       steps {
-        git url: 'https://github.com/TON_USER/timeboard-demo.git', branch: 'main'
+        git url: 'https://github.com/ngueyepmodeste/timeboard-demo.git', branch: 'main'
       }
     }
 
