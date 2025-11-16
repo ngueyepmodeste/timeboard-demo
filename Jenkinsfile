@@ -131,8 +131,9 @@ pipeline {
           docker ps -aq --filter "name=timeboard-ci-test" | xargs -r docker rm || true
 
           # Lancer un nouveau conteneur
-          docker run -d --rm --name timeboard-ci-test -p 8080:3005 ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
+          docker run -d --rm --name timeboard-ci-test -p 3005:8080 ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
           sleep 15
+          curl -f http://localhost:3005/health
           docker stop timeboard-ci-test
         """
       }
@@ -150,7 +151,7 @@ pipeline {
                 docker ps -aq --filter "name=timeboard-demo" | xargs -r docker rm || true &&
                 echo ${NEXUS_PASS} | docker login ${REGISTRY} -u ${NEXUS_USER} --password-stdin &&
                 docker pull ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} &&
-                docker run -d --name timeboard-demo -p 80:80 ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
+                docker run -d --name timeboard-demo -p 80:8080 ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
               '
             """
           }
