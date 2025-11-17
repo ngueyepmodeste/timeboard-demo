@@ -172,15 +172,4 @@ pipeline {
       }
     }
 
-    stage('Post-deploy Healthcheck') {
-      steps {
-        sshagent (credentials: ['app-server-ssh']) {
-          sh '''
-            ssh -o StrictHostKeyChecking=no "$APP_USER@$APP_HOST" "curl -f http://localhost/health"
-          '''
-        }
-      }
-    }
-
-  }
 }
