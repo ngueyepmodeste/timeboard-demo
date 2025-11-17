@@ -2,14 +2,14 @@ pipeline {
   agent any
 
   environment {
-    REGISTRY          = "50.19.74.203:8083"
+    REGISTRY          = "3.95.239.230:8083"
     IMAGE_NAME        = "ngueyepmodeste/timeboard"
 
     NEXUS_DOCKER_CRED = "nexus-docker-creds" // username/password pour Nexus (docker + raw)
-    NEXUS_RAW_URL     = "http://50.19.74.203:8081/repository/timeboard-artifacts"
+    NEXUS_RAW_URL     = "http://3.95.239.230:8081/repository/timeboard-artifacts"
 
     APP_USER          = "ubuntu"
-    APP_HOST          = "34.233.121.71"
+    APP_HOST          = "100.26.44.42"
 
     JAR_NAME          = "timeboard-demo-1.0.0.jar"
   }
