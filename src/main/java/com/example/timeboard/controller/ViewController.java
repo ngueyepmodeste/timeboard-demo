@@ -100,7 +100,7 @@ public class ViewController {
 
                     <section class="summary-card">
                         <div class="info">
-                            <h2>Modeste (groupe6)</h2>
+                            <h2>Modeste (Employé chez Horoquartz)</h2>
                             <p>
                                 Date : 2025-11-17<br>
                                 Heures travaillées : 8 h
